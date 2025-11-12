@@ -2,7 +2,7 @@ use base64::{Engine as _, engine::general_purpose};
 use quickxorhash::QuickXorHash;
 use std::env;
 use std::fs::File;
-use std::io::Read;
+use std::io::{BufReader, Read};
 
 fn main() {
     // Get command line arguments
@@ -17,7 +17,7 @@ fn main() {
     let file_path = &args[1];
 
     // Read file content
-    let mut file = match File::open(file_path) {
+    let file = match File::open(file_path) {
         Ok(file) => file,
         Err(e) => {
             eprintln!("Error opening file '{}': {}", file_path, e);
@@ -25,13 +25,17 @@ fn main() {
         }
     };
 
+    // Use BufReader for better I/O performance
+    let mut reader = BufReader::new(file);
+
     // Initialize QuickXorHash
     let mut qx = QuickXorHash::new();
 
     // Read file in chunks and update hash
-    let mut buffer = vec![0u8; 8192]; // 8KB buffer
+    // Use 64KB buffer (160 * 400 = 64000), which is a multiple of BLOCK_SIZE for optimal performance
+    let mut buffer = vec![0u8; 160 * 400]; // 64KB buffer (multiple of BLOCK_SIZE)
     loop {
-        match file.read(&mut buffer) {
+        match reader.read(&mut buffer) {
             Ok(0) => break, // EOF
             Ok(n) => {
                 qx.update(&buffer[..n]);
